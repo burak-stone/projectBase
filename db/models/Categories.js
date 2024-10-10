@@ -1,14 +1,14 @@
 const mongoose = require('mongoose');
 
-const schema = mongoose.schema({
+const schema = mongoose.Schema({
+    name: {type : String, required: true},
     is_active : {type : Boolean, default: true} ,
     created_by : {
-        type : mongoose.SchemaTypes.ObjectId,
-        required: true
+        type : mongoose.SchemaTypes.ObjectId
     }
 },{
     versionKey: false,
-    timestapms: {
+    timestamps: {
         createdAt : 'created_at',
         updatedAt : 'updated_at'
     }

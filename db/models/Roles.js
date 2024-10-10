@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const schema = mongoose.schema({
+const schema = mongoose.Schema({
     role_name : {type : String, required: true} ,
     is_active : {type : Boolean, default: true} ,
     created_by : {
