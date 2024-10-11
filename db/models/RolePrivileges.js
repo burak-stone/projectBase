@@ -5,11 +5,10 @@ const schema = mongoose.Schema({
     permission : {type : String, required: true} ,
     created_by : {
         type : mongoose.SchemaTypes.ObjectId,
-        required: true
     }
 },{
     versionKey: false,
-    timestapms: {
+    timestamps: {
         createdAt : 'created_at',
         updatedAt : 'updated_at'
     }
