@@ -75,8 +75,6 @@ router.post("/update", async(req,res)=>{
             let newPermissions = body.permissions.filter( x => !permissions.map(p => p.permission).includes(x))
             
             
-
-            //  i am assume that deleteMany is the correct term. 
             if (removedPermissions.length > 0 ){
                 await RolePrivileges.deleteMany({ _id: { $in: removedPermissions.map(x => x._id) } });
             }
@@ -118,8 +116,6 @@ router.post("/delete", async(req,res)=>{
         res.status(errorResponse.code).json(errorResponse)
     }
 })
-
-
 
 router.get("/role_privileges", async(req,res) =>{
     res.json(role_privileges);

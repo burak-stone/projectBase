@@ -18,17 +18,13 @@ const schema = mongoose.Schema({
 
 class Roles extends mongoose.Model {
 
- // deleteOne can be wrong term
     static async deleteOne(query){
        
         if(query._id){
             await RolePrivileges.deleteMany({ role_id: query._id });
         }
         await super.deleteOne(query);
-
     }
-
-
 }
 
 schema.loadClass(Roles);
