@@ -13,9 +13,12 @@
     "ejs": "^3.1.10",
     "express": "^4.21.0",
     "http-errors": "~1.6.3",
+    "jwt-simple": "^0.5.6",
     "moment": "^2.30.1",
     "mongoose": "^8.7.0",
     "morgan": "~1.9.1",
+    "passport": "^0.7.0",
+    "passport-jwt": "^4.0.1",
     "winston": "^3.15.0"
   },
   "devDependencies": {
