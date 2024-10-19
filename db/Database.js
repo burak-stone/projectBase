@@ -23,6 +23,7 @@ class Database {
 
         } catch (error) {
             console.error(error)
+            // eslint-disable-next-line no-undef
             process.exit(1)
         }
     }
