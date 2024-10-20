@@ -9,6 +9,99 @@ const UserRoles = require('../db/models/UserRoles');
 const Roles = require("../db/models/Roles")
 const config = require("../config")
 var router = express.Router();
+const auth = require("../lib/auth")();
+
+
+//we dont know that emails are the real emails
+router.post('/register', async(req,res) => {
+  let body = req.body
+  try {
+
+    let user = await Users.findOne({})
+
+    if(user){
+      return res.sendStatus(Enum.HTTP_CODES.NOT_FOUND)
+    }
+
+    if(!body.email) throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, "Validation Error!", "email field must be filled!") 
+    if(!body.password) throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, "Validation Error!", "password field must be filled!") 
+    
+    if(body.password.length < Enum.PASS_LENGTH){
+      throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, "Validation Error!", "Password length must greater than" + Enum.PASS_LENGTH)
+    }
+
+    let password = bcrypt.hashSync(body.password, bcrypt.genSaltSync(8), null);
+  
+    let createdUser = await Users.create({
+      email : body.email,
+      password,
+      is_active: true,
+      first_name: body.first_name,
+      last_name: body.last_name,
+      phone_number: body.phone_number
+    })
+   
+    let role = await Roles.create({
+      role_name: Enum.SUPER_ADMIN,
+      is_active: true,
+      created_by: createdUser._id
+    })
+   
+    await UserRoles.create({
+      role_id: role._id,
+      user_id: createdUser._id
+    })
+
+    
+
+    res.status(Enum.HTTP_CODES.CREATED).json(Response.successResponse({success: true}, Enum.HTTP_CODES.CREATED))
+
+  } catch (error) {
+    let errorResponse = Response.errorResponse(error)
+    res.status(errorResponse.code).json(errorResponse)
+  }
+})
+
+router.post('/auth', async(req,res)=>{
+  try {
+    let {email, password} = req.body;
+
+    Users.validateFieldsBeforeAuth(email,password)
+
+    let user =  await Users.findOne({email})
+
+    if (!user){
+      throw new CustomError(Enum.HTTP_CODES.UNAUTHORIZED, "Validation Error", "email or password wrong")
+    }
+
+    if(!user.validPassword(password)){
+      throw new CustomError(Enum.HTTP_CODES.UNAUTHORIZED, "Validation Error", "email or password wrong")
+    }
+
+    let payload = {
+      id: user._id,
+      exp: parseInt(Date.now()/ 1000) * config.JWT.EXPIRE_TIME
+    }
+
+    let token = jwt.encode(payload, config.JWT.SECRET)
+
+    let userData = {
+      _id: user._id,
+      first_name: user.first_name,
+      last_name: user.last_name
+    }
+
+    res.json(Response.successResponse({token, user: userData}))
+
+  } catch (error) {
+    let errorResponse = Response.errorResponse(error)
+    res.status(errorResponse.code).json(errorResponse)
+  }
+})
+
+router.all("*", auth.authenticate(), (req, res, next)=>{
+  next()
+})
 
 /* GET users listing. */
 router.get('/', async(req, res ) => {
@@ -141,91 +234,6 @@ router.post("/delete", async(req,res) =>{
   }
 })
 
-//we dont know that emails are the real emails
-router.post('/register', async(req,res) => {
-  let body = req.body
-  try {
 
-    let user = await Users.findOne({})
-
-    if(user){
-      return res.sendStatus(Enum.HTTP_CODES.NOT_FOUND)
-    }
-
-    if(!body.email) throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, "Validation Error!", "email field must be filled!") 
-    if(!body.password) throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, "Validation Error!", "password field must be filled!") 
-    
-    if(body.password.length < Enum.PASS_LENGTH){
-      throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, "Validation Error!", "Password length must greater than" + Enum.PASS_LENGTH)
-    }
-
-    let password = bcrypt.hashSync(body.password, bcrypt.genSaltSync(8), null);
-  
-    let createdUser = await Users.create({
-      email : body.email,
-      password,
-      is_active: true,
-      first_name: body.first_name,
-      last_name: body.last_name,
-      phone_number: body.phone_number
-    })
-   
-    let role = await Roles.create({
-      role_name: Enum.SUPER_ADMIN,
-      is_active: true,
-      created_by: createdUser._id
-    })
-   
-    await UserRoles.create({
-      role_id: role._id,
-      user_id: createdUser._id
-    })
-
-    
-
-    res.status(Enum.HTTP_CODES.CREATED).json(Response.successResponse({success: true}, Enum.HTTP_CODES.CREATED))
-
-  } catch (error) {
-    let errorResponse = Response.errorResponse(error)
-    res.status(errorResponse.code).json(errorResponse)
-  }
-})
-
-router.post('/auth', async(req,res)=>{
-  try {
-    let {email, password} = req.body;
-
-    Users.validateFieldsBeforeAuth(email,password)
-
-    let user =  await Users.findOne({email})
-
-    if (!user){
-      throw new CustomError(Enum.HTTP_CODES.UNAUTHORIZED, "Validation Error", "email or password wrong")
-    }
-
-    if(!user.validPassword(password)){
-      throw new CustomError(Enum.HTTP_CODES.UNAUTHORIZED, "Validation Error", "email or password wrong")
-    }
-
-    let payload = {
-      id: user._id,
-      exp: parseInt(Date.now()/ 1000) * config.JWT.EXPIRE_TIME
-    }
-
-    let token = jwt.encode(payload, config.JWT.SECRET)
-
-    let userData = {
-      _id: user._id,
-      first_name: user.first_name,
-      last_name: user.last_name
-    }
-
-    res.json(Response.successResponse({token, user: userData}))
-
-  } catch (error) {
-    let errorResponse = Response.errorResponse(error)
-    res.status(errorResponse.code).json(errorResponse)
-  }
-})
 
 module.exports = router;

@@ -5,7 +5,13 @@ const Roles = require("../db/models/Roles");
 const RolePrivileges = require("../db/models/RolePrivileges");
 const CustomError = require("../lib/Error");
 const Enum = require("../config/Enum");
+const auth = require("../lib/auth")();
 const role_privileges = require("../config/role_privileges");
+
+
+router.all("*", auth.authenticate(), (req, res, next)=>{
+    next()
+})
 
 router.get("/", async(req,res) => {
     try {
