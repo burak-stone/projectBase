@@ -76,6 +76,7 @@ router.post('/auth', async(req,res)=>{
 
     if(!user.validPassword(password)){
       throw new CustomError(Enum.HTTP_CODES.UNAUTHORIZED, "Validation Error", "email or password wrong")
+
     }
 
     let payload = {
@@ -94,6 +95,7 @@ router.post('/auth', async(req,res)=>{
     res.json(Response.successResponse({token, user: userData}))
 
   } catch (error) {
+    console.error("hata catche geliyor")
     let errorResponse = Response.errorResponse(error)
     res.status(errorResponse.code).json(errorResponse)
   }
@@ -104,7 +106,7 @@ router.all("*", auth.authenticate(), (req, res, next)=>{
 })
 
 /* GET users listing. */
-router.get('/', async(req, res ) => {
+router.get('/',auth.checkRoles("user_view"), async(req, res ) => {
 
   try {
 
@@ -120,7 +122,7 @@ router.get('/', async(req, res ) => {
 });
 
 // we dont know that emails are the real emails
-router.post('/add', async(req,res) => {
+router.post('/add', auth.checkRoles("user_add"),  async(req,res) => {
   let body = req.body
   try {
 
@@ -168,7 +170,7 @@ router.post('/add', async(req,res) => {
   }
 })
 
-router.post("/update", async(req, res) => {
+router.post("/update", auth.checkRoles("user_update"),  async(req, res) => {
   let body = req.body
   try {
     let updates = {}
@@ -218,7 +220,7 @@ router.post("/update", async(req, res) => {
   }
 })
 
-router.post("/delete", async(req,res) =>{
+router.post("/delete", auth.checkRoles("user_delete"), async(req,res) =>{
   try {
     let body = req.body
     if(!body._id) throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, "Validation Error!", "_id field must be filled")
