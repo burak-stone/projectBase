@@ -10,6 +10,8 @@ const Roles = require("../db/models/Roles")
 const config = require("../config")
 var router = express.Router();
 const auth = require("../lib/auth")();
+const AuditLogs= require("../lib/AuditLogs")
+const logger = require("../lib/logger/LoggerClass")
 
 
 //we dont know that emails are the real emails
@@ -162,6 +164,9 @@ router.post('/add', auth.checkRoles("user_add"),  async(req,res) => {
       })
     }
 
+
+    AuditLogs.info(req.user.email, "Users", "Add", user)
+    logger.info(req.user.email, "Users", "Add", user)
     res.status(Enum.HTTP_CODES.CREATED).json(Response.successResponse({success: true}, Enum.HTTP_CODES.CREATED))
 
   } catch (error) {
@@ -177,15 +182,25 @@ router.post("/update", auth.checkRoles("user_update"),  async(req, res) => {
 
     if(!body._id) throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, "Validation Error!", "_id field must be filled")
 
+
+    //update password
     if(body.password && body.password.length < Enum.PASS_LENGTH){
       updates.password = bcrypt.hashSync(body.password, bcrypt.genSaltSync(8), null)
     }
 
+    //update is_active
     if(typeof body.is_active === "boolean") updates.is_active = body.is_active
+
+    //update first_name
     if(body.first_name) updates.first_name = body.first_name
+
+    //update last_name
     if(body.last_name) updates.last_name = body.last_name
+
+    //update phone_number
     if(body.phone_number) updates.phone_number = body.phone_number
 
+    //update roles
     if(Array.isArray(body.roles) && body.roles.length > 0) {
 
       let userRoles = await UserRoles.find({user_id: body._id})
@@ -203,7 +218,7 @@ router.post("/update", auth.checkRoles("user_update"),  async(req, res) => {
                 role_id:  newRoles[i],
                 user_id: body._id
             });
-
+            
             await userRole.save()
         }
       }
@@ -211,6 +226,10 @@ router.post("/update", auth.checkRoles("user_update"),  async(req, res) => {
     }
 
     await Users.updateOne({_id: body._id}, updates)
+
+
+    AuditLogs.info(req.user.email, "Users", "Update", {updated_user_id: body._id, ...updates})
+    logger.info(req.user.email, "Users", "Update", {updated_user_id: body._id, ...updates})
 
     res.json(Response.successResponse({success: true}))
     
