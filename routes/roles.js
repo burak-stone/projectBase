@@ -8,7 +8,8 @@ const Enum = require("../config/Enum");
 const auth = require("../lib/auth")();
 const role_privileges = require("../config/role_privileges");
 const AuditLogs= require("../lib/AuditLogs")
-const logger = require("../lib/logger/LoggerClass")
+const logger = require("../lib/logger/LoggerClass");
+const UserRoles = require("../db/models/UserRoles");
 
 
 router.all("*", auth.authenticate(), (req, res, next)=>{
@@ -41,7 +42,6 @@ router.post("/add", auth.checkRoles("role_add"), async(req,res)=>{
             created_by: req.user.id
         })
 
-
         await role.save();
 
         for (let i = 0 ;i < body.permissions.length ; i++){
@@ -51,8 +51,7 @@ router.post("/add", auth.checkRoles("role_add"), async(req,res)=>{
                 created_by: req.user.id
             });
 
-            let savedPriv = await priv.save();
-            console.log("Saved privilege: " + savedPriv); 
+            await priv.save();
         }
 
 
@@ -143,10 +142,14 @@ router.post("/update", auth.checkRoles("role_update"), async (req, res) => {
 router.post("/delete", auth.checkRoles("role_delete"), async(req,res)=>{
     let body = req.body
     try {
-
+        let role = await Roles.findById(body._id);
         if(!body._id) throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, "Validation Error!", "_id field must be filled!")
+        if(!role)throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, "Validation Error!", "role couldn't found!")
 
         await Roles.deleteOne({_id : body._id})
+
+        await UserRoles.deleteMany({ role_id: body._id });
+        await RolePrivileges.deleteMany({ role_id: body._id });
 
         AuditLogs.info(req.user.email, "Roles", "Delete", {deleted_role_id: body._id})
         logger.info(req.user.email, "Roles", "Delete", {deleted_role_id: body._id})

@@ -25,12 +25,9 @@ class Users extends mongoose.Model {
         return await bcrypt.compare(password, this.password)
     }
 
-
-
     static validateFieldsBeforeAuth(email, password) {
         if (typeof password !== "string" || password.length < Enum.PASS_LENGTH)
             throw new CustomError(Enum.HTTP_CODES.UNAUTHORIZED, "Validation Error", "email or password wrong");
-
         return null;
     }
 

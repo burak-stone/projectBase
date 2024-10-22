@@ -11,7 +11,10 @@ const config = require("../config")
 var router = express.Router();
 const auth = require("../lib/auth")();
 const AuditLogs= require("../lib/AuditLogs")
-const logger = require("../lib/logger/LoggerClass")
+const logger = require("../lib/logger/LoggerClass");
+const RolePrivileges = require('../db/models/RolePrivileges');
+
+const privileges = require("../config/role_privileges")
 
 
 //we dont know that emails are the real emails
@@ -24,10 +27,8 @@ router.post('/register', async(req,res) => {
     if(user){
       return res.sendStatus(Enum.HTTP_CODES.NOT_FOUND)
     }
-
     if(!body.email) throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, "Validation Error!", "email field must be filled!") 
     if(!body.password) throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, "Validation Error!", "password field must be filled!") 
-    
     if(body.password.length < Enum.PASS_LENGTH){
       throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, "Validation Error!", "Password length must greater than" + Enum.PASS_LENGTH)
     }
@@ -48,17 +49,33 @@ router.post('/register', async(req,res) => {
       is_active: true,
       created_by: createdUser._id
     })
-   
+
+    let permissions = privileges.privileges.map(privilege => privilege.key);
+
+    for (let i = 0 ;i < permissions.length ; i++){
+      let priv = new RolePrivileges({
+          role_id: role._id,
+          permission: permissions[i],
+          created_by: createdUser._id
+      });
+
+      await priv.save();
+    }
+      
+
     await UserRoles.create({
       role_id: role._id,
       user_id: createdUser._id
     })
 
-    
 
     res.status(Enum.HTTP_CODES.CREATED).json(Response.successResponse({success: true}, Enum.HTTP_CODES.CREATED))
 
+    AuditLogs.info(req.user?.email, "Users", "Register", createdUser)
+    logger.info(req.user?.email, "Users", "Register", createdUser)
+
   } catch (error) {
+    logger.info(req.user?.email, "Users", "Register", error)
     let errorResponse = Response.errorResponse(error)
     res.status(errorResponse.code).json(errorResponse)
   }
@@ -85,7 +102,6 @@ router.post('/auth', async(req,res)=>{
       id: user._id,
       exp: parseInt(Date.now()/ 1000) * config.JWT.EXPIRE_TIME
     }
-
     let token = jwt.encode(payload, config.JWT.SECRET)
 
     let userData = {
@@ -97,7 +113,6 @@ router.post('/auth', async(req,res)=>{
     res.json(Response.successResponse({token, user: userData}))
 
   } catch (error) {
-    console.error("hata catche geliyor")
     let errorResponse = Response.errorResponse(error)
     res.status(errorResponse.code).json(errorResponse)
   }
@@ -130,15 +145,13 @@ router.post('/add', auth.checkRoles("user_add"),  async(req,res) => {
 
     if(!body.email) throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, "Validation Error!", "email field must be filled!") 
     if(!body.password) throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, "Validation Error!", "password field must be filled!") 
-
     if(body.password.length < Enum.PASS_LENGTH){
       throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, "Validation Error!", "Password length must greater than" + Enum.PASS_LENGTH)
     }
-
     if(!body.roles || !Array.isArray(body.roles) || body.roles.length == 0 ){
       throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, "Validation Error!", "roles field must be an array!")
     }
-
+    
     let roles = await Roles.find({_id: {$in: body.roles}})
 
     if (roles.length == 0 ) {
@@ -170,74 +183,117 @@ router.post('/add', auth.checkRoles("user_add"),  async(req,res) => {
     res.status(Enum.HTTP_CODES.CREATED).json(Response.successResponse({success: true}, Enum.HTTP_CODES.CREATED))
 
   } catch (error) {
+    logger.error(req.user.email, "Users", "Add", error)
     let errorResponse = Response.errorResponse(error)
     res.status(errorResponse.code).json(errorResponse)
   }
 })
 
-router.post("/update", auth.checkRoles("user_update"),  async(req, res) => {
-  let body = req.body
-  try {
-    let updates = {}
 
-    if(!body._id) throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, "Validation Error!", "_id field must be filled")
+router.post("/update", auth.checkRoles("user_update"), async (req, res) => {
+  let body = req.body;
 
+  // Yardımcı Fonksiyonlar
+  function prepareUserUpdates(body) {
+    let updates = {};
 
-    //update password
-    if(body.password && body.password.length < Enum.PASS_LENGTH){
-      updates.password = bcrypt.hashSync(body.password, bcrypt.genSaltSync(8), null)
+    // Şifre güncellemesi
+    if (body.password && body.password.length >= Enum.PASS_LENGTH) {
+        updates.password = bcrypt.hashSync(body.password, bcrypt.genSaltSync(8), null);
     }
 
-    //update is_active
-    if(typeof body.is_active === "boolean") updates.is_active = body.is_active
+    // is_active güncellemesi
+    if (typeof body.is_active === "boolean") {
+        updates.is_active = body.is_active;
+    }
 
-    //update first_name
-    if(body.first_name) updates.first_name = body.first_name
+    // first_name güncellemesi
+    if (body.first_name) {
+        updates.first_name = body.first_name;
+    }
 
-    //update last_name
-    if(body.last_name) updates.last_name = body.last_name
+    // last_name güncellemesi
+    if (body.last_name) {
+        updates.last_name = body.last_name;
+    }
 
-    //update phone_number
-    if(body.phone_number) updates.phone_number = body.phone_number
+    // phone_number güncellemesi
+    if (body.phone_number) {
+        updates.phone_number = body.phone_number;
+    }
 
-    //update roles
-    if(Array.isArray(body.roles) && body.roles.length > 0) {
+    return updates;
+  }
 
-      let userRoles = await UserRoles.find({user_id: body._id})
+  async function updateUserRoles(body, existingRoles) {
+    let updateLogs = {};
 
-      let removedRoles = userRoles.filter( x => !body.roles.includes(x.role_id)) 
-      let newRoles =  body.roles.filter( x => !userRoles.map(r => r.role_id).includes(x))
+    // Yeni ve silinen rolleri bul
+    let removedRoles = existingRoles.filter(x => !body.roles.includes(x.role_id));
+    let newRoles = body.roles.filter(x => !existingRoles.map(r => r.role_id).includes(x));
 
-      if (removedRoles.length > 0 ){
+    // Silinen roller
+    if (removedRoles.length > 0) {
         await UserRoles.deleteMany({ _id: { $in: removedRoles.map(x => x._id.toString()) } });
-      }
-
-      if(newRoles.length > 0) {
-        for (let i = 0 ;i < newRoles.length ; i++){
-            let userRole = new UserRoles({
-                role_id:  newRoles[i],
-                user_id: body._id
-            });
-            
-            await userRole.save()
-        }
-      }
-
+        updateLogs.removed_roles = removedRoles.map(x => x.role_id);
     }
 
-    await Users.updateOne({_id: body._id}, updates)
+    // Yeni eklenen roller
+    if (newRoles.length > 0) {
+        let newRoleDocs = newRoles.map(role_id => ({
+            role_id,
+            user_id: body._id
+        }));
+        await UserRoles.insertMany(newRoleDocs);
+        updateLogs.new_roles = newRoles;
+    }
 
-
-    AuditLogs.info(req.user.email, "Users", "Update", {updated_user_id: body._id, ...updates})
-    logger.info(req.user.email, "Users", "Update", {updated_user_id: body._id, ...updates})
-
-    res.json(Response.successResponse({success: true}))
-    
-  } catch (error) {
-    let errorResponse = Response.errorResponse(error)
-    res.status(errorResponse.code).json(errorResponse)
+    return updateLogs;
   }
-})
+
+  try {
+      if (!body._id) {
+          throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, "Validation Error!", "_id field must be filled");
+      }
+
+      let existingUser = await Users.findById(body._id);
+      
+      // check the user
+      if (!existingUser) {
+          throw new CustomError(Enum.HTTP_CODES.NOT_FOUND, "User not found", "User not found");
+      }
+
+      // Kullanıcı bilgilerini güncelle
+      let updates = prepareUserUpdates(body);
+
+      let updateLogs = {};
+
+      // Kullanıcı rolleri güncellemesi
+      if (Array.isArray(body.roles) && body.roles.length > 0) {
+          let existingRoles = await UserRoles.find({ user_id: body._id });
+          let roleLogs = await updateUserRoles(body, existingRoles);
+          updateLogs = { ...updateLogs, ...roleLogs };
+      }
+
+      // Veritabanında kullanıcıyı güncelle
+      await Users.updateOne({ _id: body._id }, updates);
+
+      // Loglama
+      let logData = {
+          updated_user_id: body._id,
+          updates: { ...updates, ...updateLogs }
+      };
+
+      AuditLogs.info(req.user.email, "Users", "Update", logData);
+      logger.info(req.user.email, "Users", "Update", logData);
+
+      res.json(Response.successResponse({ success: true }));
+  } catch (error) {
+      logger.error(req.user.email, "Users", "Update", error)
+      let errorResponse = Response.errorResponse(error)
+      res.status(errorResponse.code).json(errorResponse)
+  }
+});
 
 router.post("/delete", auth.checkRoles("user_delete"), async(req,res) =>{
   try {
@@ -248,8 +304,14 @@ router.post("/delete", auth.checkRoles("user_delete"), async(req,res) =>{
 
     await UserRoles.deleteMany({user_id: body._id})
 
+
     res.json(Response.successResponse({success: true}))
+    AuditLogs.info(req.user.email, "Users", "Delete", {deleted_user: body._id})
+    logger.info(req.user.email, "Users", "Delete", {deleted_user: body._id})
+
   } catch (error) {
+
+    logger.error(req.user.email, "Users", "Delete", error)
     let errorResponse = Response.errorResponse(error)
     res.status(errorResponse.code).json(errorResponse)
   }
