@@ -38,16 +38,16 @@ router.post('/add',auth.checkRoles("category_add"), async(req, res)=>{
         let category = new Categories({
             name: body.name,
             is_active: body.is_active,
-            created_by: req.user?.id
+            created_by: req.user.id
         })
 
         await category.save();
-        AuditLogs.info(req.user?.email, "Categories", "Add", category)
-        logger.info(req.user?.email, "Categories", "Add", category)
+        AuditLogs.info(req.user.email, "Categories", "Add", category)
+        logger.info(req.user.email, "Categories", "Add", category)
         res.json(Response.successResponse({success: true}));
 
     } catch (error) {
-        logger.error(req.user?.email, "Categories", "Add", error)
+        logger.error(req.user.email, "Categories", "Add", error)
         let errorResponse = Response.errorResponse(error)
         res.status(errorResponse.code).json(errorResponse);
     }
@@ -70,7 +70,7 @@ router.post("/update",auth.checkRoles("category_update"), async(req,res)=>{
 
         await Categories.updateOne({ _id: body._id }, updates);
 
-        AuditLogs.info(req.user?.email, "Categories", "Update", {_id: body._id, ...updates})
+        AuditLogs.info(req.user.email, "Categories", "Update", {_id: body._id, ...updates})
 
 
         res.json(Response.successResponse({success: true}));
@@ -90,7 +90,7 @@ router.post("/delete", auth.checkRoles("category_delete"), async(req,res)=>{
 
         await Categories.deleteOne({_id : body._id});
 
-        AuditLogs.info(req.user?.email, "Categories", "Delete", {_id: body._id})
+        AuditLogs.info(req.user.email, "Categories", "Delete", {_id: body._id})
 
 
         res.json(Response.successResponse({success: true}));
