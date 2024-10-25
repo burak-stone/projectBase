@@ -14,7 +14,6 @@ const i18n = new (require("../lib/i18n"))(config.DEFAULT_LANG);
 const AuditLogs= require("../lib/AuditLogs")
 const logger = require("../lib/logger/LoggerClass");
 const RolePrivileges = require('../db/models/RolePrivileges');
-
 const privileges = require("../config/role_privileges")
 
 
@@ -73,7 +72,6 @@ router.post('/register', async(req,res) => {
 
 
     res.status(Enum.HTTP_CODES.CREATED).json(Response.successResponse({success: true}, Enum.HTTP_CODES.CREATED))
-
     AuditLogs.info(req.user?.email, "Users", "Register", createdUser)
     logger.info(req.user?.email, "Users", "Register", createdUser)
 
@@ -146,8 +144,8 @@ router.post('/add', auth.checkRoles("user_add"),  async(req,res) => {
   let body = req.body
   try {
 
-    if(!body.email) throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, i18n.translate("COMMON.VALIDATION_ERROR_TITLE", req.user.language), i18n.translate("USERS.EMAIL_FORMAT_ERROR", req.user.language))
-    if(!body.password) throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, i18n.translate("COMMON.VALIDATION_ERROR_TITLE", req.user.language), i18n.translate("USERS.EMAIL_FORMAT_ERROR", req.user.language))
+    if(!body.email) throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, i18n.translate("COMMON.VALIDATION_ERROR_TITLE", req.user.language), i18n.translate("USERS.FIELD_MUST_BE_FILLED", req.user.language , ["email"]))
+    if(!body.password) throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, i18n.translate("COMMON.VALIDATION_ERROR_TITLE", req.user.language), i18n.translate("USERS.FIELD_MUST_BE_FILLED", req.user.language, ["password"]))
 
     if(body.password.length < Enum.PASS_LENGTH){
       throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, i18n.translate("COMMON.VALIDATION_ERROR_TITLE", req.user.language), i18n.translate("USERS.PASSWORD_LENGTH_ERROR", req.user.language) + Enum.PASS_LENGTH)
@@ -171,7 +169,8 @@ router.post('/add', auth.checkRoles("user_add"),  async(req,res) => {
       is_active: true,
       first_name: body.first_name,
       last_name: body.last_name,
-      phone_number: body.phone_number
+      phone_number: body.phone_number,
+      language : body.language
     })
 
     for (let i=0; i< roles.length; i++ ){
@@ -315,7 +314,6 @@ router.post("/delete", auth.checkRoles("user_delete"), async(req,res) =>{
     logger.info(req.user.email, "Users", "Delete", {deleted_user: body._id})
 
   } catch (error) {
-
     logger.error(req.user.email, "Users", "Delete", error)
     let errorResponse = Response.errorResponse(error)
     res.status(errorResponse.code).json(errorResponse)

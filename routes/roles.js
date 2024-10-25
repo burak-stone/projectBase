@@ -70,8 +70,7 @@ router.post("/add", auth.checkRoles("role_add"), async(req,res)=>{
 router.post("/update", auth.checkRoles("role_update"), async (req, res) => {
     let body = req.body;
     try {
-        if (!body._id) throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, "Validation Error!", "_id field must be filled!");
-
+        
         if(!body._id) throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, i18n.translate("COMMON.VALIDATION_ERROR_TITLE", req.user.language), i18n.translate("COMMON.FIELD_MUST_BE_FILLED", req.user.language, ["_id"]))
         let updates = {};
         let update_logs = {};
