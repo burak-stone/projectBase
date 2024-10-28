@@ -75,9 +75,6 @@ router.post('/register', async(req,res) => {
     AuditLogs.info(req.user?.email, "Users", "Register", createdUser)
     logger.info(req.user?.email, "Users", "Register", createdUser)
 
-    AuditLogs.info(req.user?.email, "Users", "Register", createdUser)
-    logger.info(req.user?.email, "Users", "Register", createdUser)
-
   } catch (error) {
     logger.info(req.user?.email, "Users", "Register", error)
     let errorResponse = Response.errorResponse(error)
