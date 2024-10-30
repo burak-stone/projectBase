@@ -258,15 +258,12 @@ router.post("/update", auth.checkRoles("user_update"), async (req, res) => {
   }
 
   try {
-      if (!body._id) {
-          throw new CustomError(Enum.HTTP_CODES.BAD_REQUEST, "Validation Error!", "_id field must be filled");
-      }
 
       let existingUser = await Users.findById(body._id);
       
       // check the user
       if (!existingUser) {
-          throw new CustomError(Enum.HTTP_CODES.NOT_FOUND, "User not found", "User not found");
+          throw new CustomError(Enum.HTTP_CODES.NOT_FOUND, i18n.translate("COMMON.COULDNT_FIND", req.user.language , ["User"]), i18n.translate("COMMON.COULDNT_FIND", req.user.language, ["User"]))
       }
 
       // Kullanıcı bilgilerini güncelle
