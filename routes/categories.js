@@ -10,7 +10,8 @@ const config = require('../config');
 const auth = require("../lib/auth")();
 const i18n = new (require("../lib/i18n"))(config.DEFAULT_LANG);
 const emitter = require("../lib/Emitter")
-
+const excelExport = new (require("../lib/Export"))();
+const fs = require("fs")
 
 router.all("*", auth.authenticate(), (req, res, next)=>{
     next()
@@ -101,5 +102,27 @@ router.post("/delete", auth.checkRoles("category_delete"), async(req,res)=>{
     }
 })
 
+router.post("/export", auth.checkRoles("category_export") , async(req,res) => {
+    try {
+        let categories = await Categories.find({});
+        let excel= excelExport.toExcel(
+            ["NAME","IS ACTIVE ?", "USER ID" , "CREATED AT" , "UPDATED AT"],
+            ["name", "is_active", "created_by" , "created_at", "updated_at"],
+            categories
+        )
+
+        // eslint-disable-next-line no-undef
+        let filePath = __dirname+ "/../tmp/categories_excel_" + Date.now()+ ".xlsx"
+
+        fs.writeFileSync(filePath, excel, "UTF-8")
+        res.download(filePath)
+        //fs.unlinkSync(filePath)
+
+    } catch (error) {
+        let errorResponse = Response.errorResponse(error)
+
+        res.status(errorResponse.code).json(Response.errorResponse(error))
+    }
+})
 
 module.exports = router;
