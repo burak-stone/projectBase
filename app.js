@@ -17,8 +17,6 @@ var app = express();
 //console.log('ENV',process.env);
 
 
-
-
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
